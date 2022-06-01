@@ -1,0 +1,834 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Повышение контраста полутонового изображения посредством линейной растяжки гистограммы»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнила:} \\ студентка группы 381906-3 \\ Медведева К.Е.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2022 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Существуют ситуации, когда для выполнения определенной вычислительной задачи необходимо использовать несколько вычислительных ядер, поэтому очень важно правильно организовать их совместную работу. 
+\par Параллельные вычисления – обработка данных, при которой используется несколько вычислительных ядер устройства, а задача представляется в виде множества потоков. Наиболее популярным способом их реализации является использование парадигм параллельных вычислений и соответствующих библиотек. 
+\par Благодаря использованию параллельных вычислений в программе, решающей определенные задачи, можно увеличить скорость ее работы и эффективность ее решения. Одной из такой задач, к которой можно применить данный метод, является задача повышения контраста полутонового изображения посредством линейной растяжки гистограммы. 
+\par Зачастую в полученном изображении нас может не устраивать узкий диапазон яркостей, из-за чего изображение выходит тусклым или пересвеченным. Одним из методов решения данной проблемы является линейное растяжение гистограммы.
+\par Гистограмма - это график распределения интенсивности в изображении.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par Передо мной были поставлены следующие задачи: 
+\par 1. Реализовать последовательный алгоритм решения задачи повышения контраста полутонового изображения посредством линейного растяжения гистограммы; 
+\par 2. Реализовать параллельные алгоритмы вышеупомянутой задачи с применением технологий OpenMP, TBB и std::thread; 
+\par 3. Исследовать и сравнить время работы алгоритмов; 
+\par 4. Продемонстрировать визуально работу моей программы с использованием библиотеки OpenCV.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Алгоритм линейного растяжения гистограммы сводится к присваиванию новых значений интенсивности каждому пикселю изображения. Если интенсивности исходного изображения менялись в каком-то диапазоне, то необходимо растянуть этот диапазон так, чтобы значения изменились от 0 до 255, где 0 - уровень черного, а 255 - уровень белого.
+\par Для реализации вышеописанного алгоритма необходимо сначала вычислить максимальное и минимальное значения интенсивности изображения. Затем, присвоить новые значения каждому пикселю по формуле $$f^{-1}(y) = (y - y_{min}) * \frac{(255 - 0)}{(y_{max} - y_{min})}$$
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par Для того, чтобы распараллелить алгоритм необходимо разбить данные на блоки и распределить их между потоками. Данные представлены в виде массива пикселей.
+\par \textbf{OpenMP} 
+\par В OpenMP разбиение данных осуществляется автоматически. Однако, необходимо указать какими являются данные: разделяемыми или приватными. Разделяемые данные - это данные, которые доступны всем потокам. В моем случае, такими являются матрица пикселей исходного изображения, количество ее строк и столбцов и матрица итогового изображения. Приватные данные доступны только одному потоку. В моем алгоритме такими являются локальный максимум и минимум яркости пикселей. 
+\par Параллельный регион кода определяется с помощью директивы #pragma omp parallel, внутри которого при помощи директивы #pragma omp for (она сообщает, что при выполнении цикла его итерации должны быть распределены между потоками) нужно вычислить локальные максимум и минимум интенсивности пикселей каждого потока. 
+\par Далее, для того, чтобы предотвратить состояние гонок, которое может возникнуть при изменении общей переменной одновременно несколькими потоками, необходимо реализовать критическую секцию с помощью директивы #pragma omp critical для того чтобы указать участок кода, который будет исполняться только одним потоком в один момент времени и вычислить максимум и минимум интенсивности пикселей из всех потоков. 
+\par Затем необходимо заблокировать все потоки с помощью #pragma omp barrier и в цикле присвоить новые значения каждому пикселю по выше упомянутой формуле. 
+\par \textbf{TBB}
+\par В TBB распределение данных также осуществляется автоматически. Здесь параллельную версию цикла for можно реализовать с помощью tbb::parallel\_for, принимающим на вход итерационное пространство, которое задает количество итераций цикла и функцию, представленную лямбда-выражением. Внутри этого цикла вычисляются максимум и минимум интенсивности пикселей для каждого потока. Далее в цикле по количеству потоков находим максимум и минимум из всех потоков. В конце, присваиваем новые значения интенсивности каждому пикселю по известной формуле.
+\par \textbf{std::thread}
+\par В std::thread количество данных, обрабатываемых каждым потоком определяется вручную исходя из вычисленных начала и конца фрагмента исходной матрицы для каждого потока. Далее, в каждый поток передается нужная часть матрицы исходного изображения и вычисляются локальные максимум и минимум интенсивности пикселей. После этого, находим максимум и минимум интенсивности пикселей среди всех потоков и присваиваем новые значения каждому пикселю по вышеуказанной формуле.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из 3 модулей: 
+\par 1. Файл //linear\_histogram\_stretching.cpp - основной файл, содержащий реализацию функций последовательного и параллельного алгоритмов; 
+\par 2. Заголовочный файл (//linear\_histogram\_stretching.h), который подключен к основному модулю. Заголовочный файл содержит прототипы функций; 
+\par 3. Файл //main.cpp, в котором содержатся тесты, разработанные на основе фреймворка Google Test.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы написанной мною программы я написала 8 тестов. В каждом из них сравнивается результирующая матрица - изображение, полученная с помощью последовательного и параллельного алгоритмов на одинаковых данных. В данном случае результаты совпадают при запуске на любом числе процессов и размере входных данных, что говорит о корректности работы разработанных алгоритмов. 
+\par Помимо тестов корректность работы моей программы проверяется визуально применением реализованного алгоритма линейного растяжения гистограммы к изображению в серых тонах. Данная проверка производилась с помощью библиотеки OpenCV.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности работы параллельных алгоритмов проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: AMD Ryzen 5 5500U, 2.4 ГГц (4.0 ГГц, в режиме Turbo), количество ядер: 6;
+\item Оперативная память: 16 ГБ (DDR4), 3200 МГц;
+\item Операционная система: Windows 10 Home.
+\end{itemize}
+\begin{table}[!h]
+\caption{Результаты экспериментов для изображения размером 4096х4096}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Версия алгоритма & Время работы последовательного алгоритма & Время работы параллельного алгоритма & Ускорение  \\[5pt]
+\hline
+OpenMP        & 1.478519         & 0.447360        & 3.304985         \\
+TBB           & 1.709728         & 0.888413        & 1.924473         \\
+std::thread   & 1.695000         & 1.058000        & 1.602079         \\
+
+\hline
+\end{tabular}
+\end{table}
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+ Из проведенных экспериментов видно, что параллельные версии алгоритма работают быстрее последовательной. Это связано не только с распределением вычислений по различным процессам, но и уменьшением количества данных в каждом, благодаря чему появляется возможность разместить их в кэше, который является наиболее быстрым типом памяти. Наибольшее ускорение было достигнуто в OpenMP версии.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В процессе учебной практики я получила новые знания о распределенных вычислениях. В результате мне удалось успешно реализовать последовательный и параллельные алгоритмы решения задачи повышения контраста полутонового изображения посредством линейной растяжки гистограммы. 
+\par Кроме того, я провела сравнение последовательного и параллельных алгоритмов и убедилась в эффективности использования OpenMP, TBB, std::thread.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\par Обработка и анализ изображений - Электронный ресурс. \newline URL: http://www.graph.unn.ru/rus/materials/CG/CG04_ImageProcessing2.pdf
+\par Электронный ресурс.  \newline URL: 
+https://cloud.unn.ru/s/RQMgkKLMq92cm6A
+\par Электронный ресурс.  \newline URL: 
+https://cloud.unn.ru/s/nS8EtaeH7N4XW7t
+\par Электронный ресурс.  \newline URL: 
+https://habr.com/ru/post/182610/
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\textbf{Последовательная версия}
+\par linear\_histogram\_stretching.h
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#ifndef MODULES_TASK_1_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+#define MODULES_TASK_1_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+
+#include <vector>
+
+std::vector<int> getRandomMatrix(std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count);
+std::vector<int> getSequentialOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count);
+
+#endif  // MODULES_TASK_1_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+\end{lstlisting}
+
+\par linear\_histogram\_stretching.cpp
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#include <random>
+#include "../../../modules/task_1/medvedeva_k_linear_histogram_stretching/linear_histogram_stretching.h"
+
+std::vector<int> getRandomMatrix(std::vector<int>::size_type row_count, std::vector<int>::size_type column_count) {
+    std::random_device dev;
+    std::mt19937 gen(dev());
+    std::vector<int> vec(row_count * column_count);
+    for (std::vector<int>::size_type i = 0; i < row_count; i++) {
+        for (std::vector<int>::size_type j = 0; j < column_count; j++) {
+            vec[i * column_count + j] = gen() % 100;
+        }
+    }
+    return vec;
+}
+
+std::vector<int> getSequentialOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count) {
+    std::vector<int> res(matrix);
+    int max_y = 0;
+    int min_y = 255;
+    for (std::size_t i = 0; i < column_count * row_count; i++) {
+        if (matrix[i] > max_y) {
+            max_y = matrix[i];
+        }
+        if (matrix[i] < min_y) {
+            min_y = matrix[i];
+        }
+    }
+    for (std::size_t i = 0; i < column_count * row_count; i++) {
+        res[i] = (matrix[i] - min_y) * (255 / (max_y - min_y));
+    }
+    return res;
+}
+\end{lstlisting}
+
+\par main.cpp
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#include <gtest/gtest.h>
+#include "./linear_histogram_stretching.h"
+
+TEST(Generation_Matrix, can_generate_square_matrix) {
+    ASSERT_NO_THROW(getRandomMatrix(15, 15));
+}
+
+TEST(Generation_Matrix, can_generate_arbitrary_matrix) {
+    ASSERT_NO_THROW(getRandomMatrix(11, 15));
+}
+
+TEST(Sequential_Operations, getSequentialOperations_can_work_with_square_matrix) {
+    std::vector<int> matrix = getRandomMatrix(15, 15);
+
+    ASSERT_NO_THROW(getSequentialOperations(matrix, 15, 15));
+}
+
+TEST(Sequential_Operations, getSequentialOperations_can_work_with_arbitrary_matrix) {
+    std::vector<int> matrix = getRandomMatrix(10, 15);
+
+    ASSERT_NO_THROW(getSequentialOperations(matrix, 10, 15));
+}
+
+TEST(Sequential_Operations, getSequentialOperations_can_work_with_big_matrix) {
+    std::vector<int> matrix = getRandomMatrix(30, 30);
+
+    ASSERT_NO_THROW(getSequentialOperations(matrix, 30, 30));
+}
+
+TEST(Sequential_Operations, getSequentialOperations_works_correctly_with_square_matrix) {
+    std::vector<int> matrix = {1, 3, 2, 5, 15, 7, 1, 0, 9};
+    std::vector<int> res = {17, 51, 34, 85, 255, 119, 17, 0, 153};
+    ASSERT_EQ(res, getSequentialOperations(matrix, 3, 3));
+}
+
+TEST(Sequential_Operations, getSequentialOperations_works_correctly_with_arbitrary_matrix) {
+    std::vector<int> matrix = {2, 17, 10, 4, 7, 3};
+    std::vector<int> res = { 0, 255, 136, 34, 85, 17};
+
+    ASSERT_EQ(res, getSequentialOperations(matrix, 2, 3));
+}
+\end{lstlisting}
+
+\textbf{OpenMP}
+\par linear\_histogram\_stretching.h
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#ifndef MODULES_TASK_2_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+#define MODULES_TASK_2_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+
+#include <omp.h>
+#include <vector>
+
+std::vector<int> getRandomMatrix(std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count);
+std::vector<int> getSequentialOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count);
+std::vector<int> getParallelOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count);
+
+#endif  // MODULES_TASK_2_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+\end{lstlisting}
+
+\par linear\_histogram\_stretching.cpp
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#include "../../../modules/task_2/medvedeva_k_linear_histogram_stretching/linear_histogram_stretching.h"
+#include <random>
+
+std::vector<int> getRandomMatrix(std::vector<int>::size_type row_count, std::vector<int>::size_type column_count) {
+    std::random_device dev;
+    std::mt19937 gen(dev());
+    std::vector<int> vec(row_count * column_count);
+    for (std::vector<int>::size_type i = 0; i < row_count; i++) {
+        for (std::vector<int>::size_type j = 0; j < column_count; j++) {
+            vec[i * column_count + j] = gen() % 100;
+        }
+    }
+    return vec;
+}
+
+std::vector<int> getSequentialOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count) {
+    std::vector<int> res(matrix);
+    int max_y = 0;
+    int min_y = 255;
+    for (std::size_t i = 0; i < column_count * row_count; i++) {
+        if (matrix[i] > max_y) {
+            max_y = matrix[i];
+        }
+        if (matrix[i] < min_y) {
+            min_y = matrix[i];
+        }
+    }
+    for (std::size_t i = 0; i < column_count * row_count; i++) {
+        res[i] = (matrix[i] - min_y) * (255 / (max_y - min_y));
+    }
+    return res;
+}
+
+std::vector<int> getParallelOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count) {
+    std::vector<int> res(matrix);
+    int max_y = 0;
+    int min_y = 255;
+    int local_max_y = 0;
+    int local_min_y = 255;
+#pragma omp parallel shared(matrix, row_count, column_count, res) firstprivate(local_max_y, local_min_y)
+    {
+#pragma omp for
+        for (int i = 0; i < static_cast<int>(column_count * row_count); i++) {
+            if (matrix[i] > local_max_y) {
+                local_max_y = matrix[i];
+            }
+            if (matrix[i] < local_min_y) {
+                local_min_y = matrix[i];
+            }
+        }
+#pragma omp critical
+        {
+            if (max_y < local_max_y) {
+                max_y = local_max_y;
+            }
+            if (min_y > local_min_y) {
+                min_y = local_min_y;
+            }
+        }
+#pragma omp barrier
+#pragma omp for
+        for (int i = 0; i < static_cast<int>(column_count * row_count); i++) {
+            res[i] = (matrix[i] - min_y) * (255 / (max_y - min_y));
+        }
+    }
+    return res;
+}
+\end{lstlisting}
+
+\par main.cpp
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#include <gtest/gtest.h>
+#include "./linear_histogram_stretching.h"
+
+TEST(Generation_Matrix, can_generate_square_matrix) {
+    ASSERT_NO_THROW(getRandomMatrix(15, 15));
+}
+
+TEST(Generation_Matrix, can_generate_arbitrary_matrix) {
+    ASSERT_NO_THROW(getRandomMatrix(11, 15));
+}
+
+TEST(Parallel_Operations, getParallelOperations_can_work_with_square_matrix) {
+    std::vector<int> matrix = getRandomMatrix(15, 15);
+
+    ASSERT_NO_THROW(getParallelOperations(matrix, 15, 15));
+}
+
+TEST(Parallel_Operations, getParallelOperations_can_work_with_arbitrary_matrix) {
+    std::vector<int> matrix = getRandomMatrix(10, 15);
+
+    ASSERT_NO_THROW(getParallelOperations(matrix, 10, 15));
+}
+
+TEST(Parallel_Operations, getParallelOperations_can_work_with_big_matrix) {
+    std::vector<int> matrix = getRandomMatrix(30, 30);
+
+    ASSERT_NO_THROW(getParallelOperations(matrix, 30, 30));
+}
+
+TEST(Parallel_Operations, getParallelOperations_works_correctly_with_square_matrix) {
+    std::vector<int> matrix = {1, 3, 2, 5, 15, 7, 1, 0, 9};
+    std::vector<int> res = {17, 51, 34, 85, 255, 119, 17, 0, 153};
+
+    ASSERT_EQ(res, getParallelOperations(matrix, 3, 3));
+}
+
+TEST(Parallel_Operations, getParallelOperations_works_correctly_with_arbitrary_matrix) {
+    std::vector<int> matrix = {2, 17, 10, 4, 7, 3};
+    std::vector<int> res = { 0, 255, 136, 34, 85, 17};
+
+    ASSERT_EQ(res, getParallelOperations(matrix, 2, 3));
+}
+
+TEST(DISABLED_Parallel_Operations, acceleration_test) {
+    std::vector<int>::size_type matrix_size = 4096;
+    std::vector<int> matrix(matrix_size * matrix_size);
+    matrix = getRandomMatrix(matrix_size, matrix_size);
+
+    auto start_getSequentialOperations = omp_get_wtime();
+    std::vector<int> expected_res = getSequentialOperations(matrix, matrix_size, matrix_size);
+    auto finish_getSequentialOperations = omp_get_wtime();
+
+    omp_set_num_threads(6);
+    auto start_getParallelOperations = omp_get_wtime();
+    std::vector<int> res = getParallelOperations(matrix, matrix_size, matrix_size);
+    auto finish_getParallelOperations = omp_get_wtime();
+
+    auto getSequentialOperations_running_time = finish_getSequentialOperations - start_getSequentialOperations;
+    auto getParallelOperations_running_time = finish_getParallelOperations - start_getParallelOperations;
+    auto acceleration = getSequentialOperations_running_time / getParallelOperations_running_time;
+
+    printf("Running time of sequential algorithm=%lf\nRunning time of parallel algorithm=%lf\n",
+        getSequentialOperations_running_time, getParallelOperations_running_time);
+    printf("Acceleration=%lf\n", acceleration);
+
+    ASSERT_EQ(res, expected_res);
+}
+\end{lstlisting}
+
+\textbf{TBB}
+\par linear\_histogram\_stretching.h
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#ifndef MODULES_TASK_3_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+#define MODULES_TASK_3_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+
+#include <tbb/tbb.h>
+#include <vector>
+
+std::vector<int> getRandomMatrix(std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count);
+std::vector<int> getSequentialOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count);
+std::vector<int> getParallelOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count,
+    int thread_count = tbb::task_scheduler_init::default_num_threads());
+
+#endif  // MODULES_TASK_3_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+\end{lstlisting}
+
+\par linear\_histogram\_stretching.cpp
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#include "../../../modules/task_3/medvedeva_k_linear_histogram_stretching/linear_histogram_stretching.h"
+#include <random>
+
+std::vector<int> getRandomMatrix(std::vector<int>::size_type row_count, std::vector<int>::size_type column_count) {
+    std::random_device dev;
+    std::mt19937 gen(dev());
+    std::vector<int> vec(row_count * column_count);
+    for (std::vector<int>::size_type i = 0; i < row_count; i++) {
+        for (std::vector<int>::size_type j = 0; j < column_count; j++) {
+            vec[i * column_count + j] = gen() % 100;
+        }
+    }
+    return vec;
+}
+
+std::vector<int> getSequentialOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count) {
+    std::vector<int> res(matrix);
+    int max_y = 0;
+    int min_y = 255;
+    for (std::size_t i = 0; i < column_count * row_count; i++) {
+        if (matrix[i] > max_y) {
+            max_y = matrix[i];
+        }
+        if (matrix[i] < min_y) {
+            min_y = matrix[i];
+        }
+    }
+    for (std::size_t i = 0; i < column_count * row_count; i++) {
+        res[i] = (matrix[i] - min_y) * (255 / (max_y - min_y));
+    }
+    return res;
+}
+
+std::vector<int> getParallelOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count,
+    int thread_count) {
+    std::vector<int> res(matrix);
+    tbb::task_scheduler_init init(thread_count);
+    std::vector<int> local_max_y(thread_count, 0);
+    std::vector<int> local_min_y(thread_count, 255);
+    int max_y = 0;
+    int min_y = 255;
+
+    tbb::parallel_for(tbb::blocked_range<std::size_t>(0, column_count * row_count),
+        [&](const tbb::blocked_range<std::size_t>& r) {
+            for (std::size_t i = r.begin(); i < r.end(); i++) {
+                if (matrix[i] > local_max_y[tbb::task_arena::current_thread_index()]) {
+                    local_max_y[tbb::task_arena::current_thread_index()] = matrix[i];
+                }
+                if (matrix[i] < local_min_y[tbb::task_arena::current_thread_index()]) {
+                    local_min_y[tbb::task_arena::current_thread_index()] = matrix[i];
+                }
+            }
+        });
+
+    for (auto i = 0; i < thread_count; i++) {
+        if (local_max_y[i] > max_y)
+            max_y = local_max_y[i];
+        if (local_min_y[i] < min_y)
+            min_y = local_min_y[i];
+    }
+
+    tbb::parallel_for(tbb::blocked_range<std::size_t>(0, column_count * row_count),
+        [&](const tbb::blocked_range<std::size_t>& r) {
+            for (std::size_t i = r.begin(); i < r.end(); i++) {
+                res[i] = (matrix[i] - min_y) * (255 / (max_y - min_y));
+            }
+        });
+
+    return res;
+}
+\end{lstlisting}
+
+\par main.cpp
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#include <gtest/gtest.h>
+#include "./linear_histogram_stretching.h"
+
+TEST(Generation_Matrix, can_generate_square_matrix) {
+    ASSERT_NO_THROW(getRandomMatrix(15, 15));
+}
+
+TEST(Generation_Matrix, can_generate_arbitrary_matrix) {
+    ASSERT_NO_THROW(getRandomMatrix(11, 15));
+}
+
+TEST(Parallel_Operations, getParallelOperations_can_work_with_square_matrix) {
+    std::vector<int> matrix = getRandomMatrix(15, 15);
+
+    ASSERT_NO_THROW(getParallelOperations(matrix, 15, 15));
+}
+
+TEST(Parallel_Operations, getParallelOperations_can_work_with_arbitrary_matrix) {
+    std::vector<int> matrix = getRandomMatrix(10, 15);
+
+    ASSERT_NO_THROW(getParallelOperations(matrix, 10, 15));
+}
+
+TEST(Parallel_Operations, getParallelOperations_can_work_with_big_matrix) {
+    std::vector<int> matrix = getRandomMatrix(30, 30);
+
+    ASSERT_NO_THROW(getParallelOperations(matrix, 30, 30));
+}
+
+TEST(Parallel_Operations, getParallelOperations_works_correctly_with_square_matrix) {
+    std::vector<int> matrix = {1, 3, 2, 5, 15, 7, 1, 0, 9};
+    std::vector<int> res = {17, 51, 34, 85, 255, 119, 17, 0, 153};
+
+    ASSERT_EQ(res, getParallelOperations(matrix, 3, 3));
+}
+
+TEST(Parallel_Operations, getParallelOperations_works_correctly_with_arbitrary_matrix) {
+    std::vector<int> matrix = {2, 17, 10, 4, 7, 3};
+    std::vector<int> res = { 0, 255, 136, 34, 85, 17};
+
+    ASSERT_EQ(res, getParallelOperations(matrix, 2, 3));
+}
+
+TEST(DISABLED_Parallel_Operations, acceleration_test) {
+    std::vector<int>::size_type matrix_size = 10000;
+    std::vector<int> matrix(matrix_size * matrix_size);
+    matrix = getRandomMatrix(matrix_size, matrix_size);
+
+    auto start_getSequentialOperations = tbb::tick_count::now();
+    std::vector<int> expected_res = getSequentialOperations(matrix, matrix_size, matrix_size);
+    auto finish_getSequentialOperations = tbb::tick_count::now();
+
+    auto start_getParallelOperations = tbb::tick_count::now();
+    std::vector<int> res = getParallelOperations(matrix, matrix_size, matrix_size);
+    auto finish_getParallelOperations = tbb::tick_count::now();
+
+    auto getSequentialOperations_running_time =
+        (finish_getSequentialOperations - start_getSequentialOperations).seconds();
+    auto getParallelOperations_running_time =
+        (finish_getParallelOperations - start_getParallelOperations).seconds();
+    auto acceleration = getSequentialOperations_running_time / getParallelOperations_running_time;
+
+    printf("Running time of sequential algorithm=%lf\nRunning time of parallel algorithm=%lf\n",
+        getSequentialOperations_running_time, getParallelOperations_running_time);
+    printf("Acceleration=%lf\n", acceleration);
+
+    ASSERT_EQ(res, expected_res);
+}
+\end{lstlisting}
+
+\textbf{std::thread}
+\par linear\_histogram\_stretching.h
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#ifndef MODULES_TASK_4_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+#define MODULES_TASK_4_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+
+#include <vector>
+
+std::vector<int> getRandomMatrix(std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count);
+std::vector<int> getSequentialOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count);
+std::vector<int> getParallelOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count, std::size_t thread_count = 12);
+
+#endif  // MODULES_TASK_4_MEDVEDEVA_K_LINEAR_HISTOGRAM_STRETCHING_LINEAR_HISTOGRAM_STRETCHING_H_
+\end{lstlisting}
+
+\par linear\_histogram\_stretching.cpp
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#include "../../../modules/task_4/medvedeva_k_linear_histogram_stretching/linear_histogram_stretching.h"
+#include <random>
+#include "../../../3rdparty/unapproved/unapproved.h"
+
+std::vector<int> getRandomMatrix(std::vector<int>::size_type row_count, std::vector<int>::size_type column_count) {
+    std::random_device dev;
+    std::mt19937 gen(dev());
+    std::vector<int> vec(row_count * column_count);
+    for (std::vector<int>::size_type i = 0; i < row_count; i++) {
+        for (std::vector<int>::size_type j = 0; j < column_count; j++) {
+            vec[i * column_count + j] = gen() % 100;
+        }
+    }
+    return vec;
+}
+
+std::vector<int> getSequentialOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count) {
+    std::vector<int> res(matrix);
+    int max_y = 0;
+    int min_y = 255;
+    for (std::size_t i = 0; i < column_count * row_count; i++) {
+        if (matrix[i] > max_y) {
+            max_y = matrix[i];
+        }
+        if (matrix[i] < min_y) {
+            min_y = matrix[i];
+        }
+    }
+    for (std::size_t i = 0; i < column_count * row_count; i++) {
+        res[i] = (matrix[i] - min_y) * (255 / (max_y - min_y));
+    }
+    return res;
+}
+
+void thread_function(const std::vector<int>& matrix, int* local_max_y, int* local_min_y, int part_begin, int part_end) {
+    for (int i = 0; i < part_end - part_begin; i++) {
+        if (matrix[i] > *local_max_y) {
+            *local_max_y = matrix[i];
+        }
+        if (matrix[i] < *local_min_y) {
+            *local_min_y = matrix[i];
+        }
+    }
+}
+
+std::vector<int> getParallelOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count,
+    std::size_t thread_count) {
+    std::vector<int> res(matrix);
+    int max_y = 0;
+    int min_y = 255;
+
+    std::vector<int> local_max_y(thread_count, 0);
+    std::vector<int> local_min_y(thread_count, 255);
+
+    std::vector<std::thread> threads(thread_count);
+
+    int part_begin = 0;
+    int part_end = 0;
+
+    for (std::size_t i = 0; i < thread_count; i++) {
+        part_begin = part_end;
+        part_end = (((row_count * column_count) / thread_count) * (i + 1) +
+            (i == thread_count - 1 ? (row_count * column_count) % thread_count : 0));
+
+        threads[i] = std::thread(thread_function, std::vector<int>(matrix.begin() + part_begin,
+            matrix.begin() + part_end),
+            &local_max_y[i], &local_min_y[i], part_begin, part_end);
+    }
+
+    for (size_t i = 0; i < thread_count; i++) {
+        threads[i].join();
+        if (max_y < local_max_y[i]) {
+            max_y = local_max_y[i];
+        }
+        if (min_y > local_min_y[i]) {
+            min_y = local_min_y[i];
+        }
+    }
+    for (std::size_t i = 0; i < row_count * column_count; i++) {
+        res[i] = (matrix[i] - min_y) * (255 / (max_y - min_y));
+    }
+    return res;
+}
+\end{lstlisting}
+
+\par main.cpp
+\begin{lstlisting}
+// Copyright 2022 Medvedeva Karina
+#include <gtest/gtest.h>
+#include "./linear_histogram_stretching.h"
+
+TEST(Generation_Matrix, can_generate_square_matrix) {
+    ASSERT_NO_THROW(getRandomMatrix(15, 15));
+}
+
+TEST(Generation_Matrix, can_generate_arbitrary_matrix) {
+    ASSERT_NO_THROW(getRandomMatrix(11, 15));
+}
+
+TEST(Parallel_Operations, getParallelOperations_can_work_with_square_matrix) {
+    std::vector<int> matrix = getRandomMatrix(15, 15);
+
+    ASSERT_NO_THROW(getParallelOperations(matrix, 15, 15));
+}
+
+TEST(Parallel_Operations, getParallelOperations_can_work_with_arbitrary_matrix) {
+    std::vector<int> matrix = getRandomMatrix(10, 15);
+
+    ASSERT_NO_THROW(getParallelOperations(matrix, 10, 15));
+}
+
+TEST(Parallel_Operations, getParallelOperations_can_work_with_big_matrix) {
+    std::vector<int> matrix = getRandomMatrix(30, 30);
+
+    ASSERT_NO_THROW(getParallelOperations(matrix, 30, 30));
+}
+
+TEST(Parallel_Operations, getParallelOperations_works_correctly_with_square_matrix) {
+    std::vector<int> matrix = {1, 3, 2, 5, 15, 7, 1, 0, 9};
+    std::vector<int> res = {17, 51, 34, 85, 255, 119, 17, 0, 153};
+
+    ASSERT_EQ(res, getParallelOperations(matrix, 3, 3));
+}
+
+TEST(Parallel_Operations, getParallelOperations_works_correctly_with_arbitrary_matrix) {
+    std::vector<int> matrix = {2, 17, 10, 4, 7, 3};
+    std::vector<int> res = { 0, 255, 136, 34, 85, 17};
+
+    ASSERT_EQ(res, getParallelOperations(matrix, 2, 3));
+}
+
+TEST(DISABLED_Parallel_Operations, acceleration_test) {
+    std::vector<int>::size_type matrix_size = 10000;
+    std::vector<int> matrix(matrix_size * matrix_size);
+    matrix = getRandomMatrix(matrix_size, matrix_size);
+
+    auto start_getSequentialOperations = clock();
+    std::vector<int> expected_res = getSequentialOperations(matrix, matrix_size, matrix_size);
+    auto finish_getSequentialOperations = clock();
+
+    auto start_getParallelOperations = clock();
+    std::vector<int> res = getParallelOperations(matrix, matrix_size, matrix_size);
+    auto finish_getParallelOperations = clock();
+
+    auto getSequentialOperations_running_time = static_cast<double>(finish_getSequentialOperations -
+        start_getSequentialOperations) / CLOCKS_PER_SEC;
+    auto getParallelOperations_running_time = static_cast<double>(finish_getParallelOperations -
+        start_getParallelOperations) / CLOCKS_PER_SEC;
+    auto acceleration = getSequentialOperations_running_time / getParallelOperations_running_time;
+
+    printf("Running time of sequential algorithm=%lf\nRunning time of parallel algorithm=%lf\n",
+        getSequentialOperations_running_time, getParallelOperations_running_time);
+    printf("Acceleration=%lf\n", acceleration);
+
+    ASSERT_EQ(res, expected_res);
+}
+\end{lstlisting}
+
+\end{document}
